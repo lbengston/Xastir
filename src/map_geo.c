@@ -565,6 +565,8 @@ void draw_geo_image_map (Widget w,
     char tileCache[MAX_FILENAME+1]; // directory for the OSM tile cache, read from GEO file.
     char OSMstyle[MAX_OSMSTYLE];
     char OSMtileExt[MAX_OSMEXT];
+    int ZYX_Flag = 0;  // 1 = x and y parameters are reversed on tile server
+                       // 2 = x and y are reversed and tile has no file extension.
 
     // Start with an empty fileimg[] string so that we can
     // tell if a URL has been specified in the file. Same for OSMstyle.
@@ -824,6 +826,30 @@ void draw_geo_image_map (Widget w,
                 OSMserver_flag = 2;
                 if (strlen(line) > 14) {
                     if (1 != sscanf (line + 14, "%s", OSMstyle)) {
+                        fprintf(stderr,"draw_geo_image_map:sscanf parsing error for OSM style.\n"); 
+                    }
+                }
+            }
+            
+            if (strncasecmp (line, "ZYX_TILED_MAP", 13) == 0) // Remote tiles stored in z/y/x format
+                                                              // instead of OSM's z/x/y format
+            {
+                OSMserver_flag = 2;
+                ZYX_Flag = 1;
+                if (strlen(line) > 14) {
+                    if (1 != sscanf (line + 14, "%s", OSMstyle)) {
+                        fprintf(stderr,"draw_geo_image_map:sscanf parsing error for OSM style.\n"); 
+                    }
+                }
+            }
+
+            if (strncasecmp (line, "ZYX_TILED_NOEXT_MAP", 19) == 0)  // Remote tiles stored in z/y/x format
+                                                                     // that have no file extension
+            {
+                OSMserver_flag = 2;
+                ZYX_Flag = 2;
+                if (strlen(line) > 20) {
+                    if (1 != sscanf (line + 20, "%s", OSMstyle)) {
                         fprintf(stderr,"draw_geo_image_map:sscanf parsing error for OSM style.\n"); 
                     }
                 }
@@ -1101,13 +1127,12 @@ void draw_geo_image_map (Widget w,
 #ifdef HAVE_MAGICK
 
         // fileimg is the server URL, if specified.
-        draw_OSM_tiles(w, filenm, destination_pixmap, fileimg, tileCache, OSMstyle, OSMtileExt);
+        draw_OSM_tiles(w, filenm, destination_pixmap, fileimg, tileCache, OSMstyle, OSMtileExt, ZYX_Flag);
 
 #endif  // HAVE_MAGICK
 
         return;
-    }
-
+    } 
 
 
     // Check whether a WMS server has been selected.  If so, run off

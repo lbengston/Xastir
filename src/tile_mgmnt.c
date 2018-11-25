@@ -202,7 +202,8 @@ int getOneTile (CURL *session,
         unsigned long y,
         int zoom,
         char *baseDir,
-        char *tileExt) {
+        char *tileExt,
+        int ZYX_Flag) {
     CURLcode res;
     time_t cacheTimeout;
 #else
@@ -211,7 +212,8 @@ int getOneTile (char *baseURL,
         unsigned long y,
         int zoom,
         char *baseDir,
-        char *tileExt) {
+        char *tileExt,
+        int ZYX_Flag) {
 #endif // HAVE_LIBCURL
     
     struct stat sb;
@@ -219,8 +221,17 @@ int getOneTile (char *baseURL,
     char local_filename[1100];
     int result = 0;
 
-    xastir_snprintf(url, sizeof(url), "%s/%u/%lu/%lu.%s", baseURL, zoom,
-            x, y, tileExt);
+    if (ZYX_Flag == 0) {  // Server uses OSM z/x/y format
+        xastir_snprintf(url, sizeof(url), "%s/%u/%lu/%lu.%s", baseURL, zoom,
+                x, y, tileExt);
+    } else if (ZYX_Flag == 1) {  // Server uses z/y/x format
+        xastir_snprintf(url, sizeof(url), "%s/%u/%lu/%lu.%s", baseURL, zoom,
+                y, x, tileExt);
+    } else if (ZYX_Flag == 2) {  // Also z/y/x but tile has no file extension
+        xastir_snprintf(url, sizeof(url), "%s/%u/%lu/%lu", baseURL, zoom,
+                y, x);
+    }
+    // In each case files are stored locally in the OSM z/x/y.tileExt format
     xastir_snprintf(local_filename, sizeof(local_filename),
             "%s/%u/%lu/%lu.%s", baseDir, zoom, x, y, tileExt);
 
@@ -235,29 +246,31 @@ int getOneTile (char *baseURL,
 
     } else {
 
-        // Check for updated tiles after 7 days, per
-        // OSM Tile Usage Policy,
-        // http://wiki.openstreetmap.org/wiki/Tile_usage_policy,
-        // 2010/07/29
-        cacheTimeout = sb.st_mtime + SECONDS_7_DAYS;
-        if (cacheTimeout <= time(NULL)) {
-            // tile exists in the cache, but is older than 7 days, so
-            // check the server for a newer version.
-            if (debug_level & 512) {
-                fprintf(stderr, "Refreshing %s.\n", url);
+        if (ZYX_Flag == 0) {  // Applies to OSM only
+            // Check for updated tiles after 7 days, per
+            // OSM Tile Usage Policy,
+            // http://wiki.openstreetmap.org/wiki/Tile_usage_policy,
+            // 2010/07/29
+            cacheTimeout = sb.st_mtime + SECONDS_7_DAYS;
+            if (cacheTimeout <= time(NULL)) {
+                // tile exists in the cache, but is older than 7 days, so
+                // check the server for a newer version.
+                if (debug_level & 512) {
+                    fprintf(stderr, "Refreshing %s.\n", url);
+                }
+                res = fetch_remote_tile(session, url, local_filename);
+
+            } else {
+
+                if (debug_level & 512) {
+                    fprintf(stderr, "Skipping- %s\n", url);
+                    fprintf(stderr, "          because cache time has not expired.\n");
+                    fprintf(stderr, "          cache expires %s",
+                            ctime(&cacheTimeout));
+                }
+
+                res = CURLE_OK;
             }
-            res = fetch_remote_tile(session, url, local_filename);
-
-        } else {
-
-            if (debug_level & 512) {
-                fprintf(stderr, "Skipping- %s\n", url);
-                fprintf(stderr, "          because cache time has not expired.\n");
-                fprintf(stderr, "          cache expires %s",
-                        ctime(&cacheTimeout));
-            }
-
-            res = CURLE_OK;
         }
     }
 

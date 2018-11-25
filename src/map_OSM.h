@@ -47,7 +47,8 @@ void draw_OSM_tiles(Widget w,
         char *server_url,
         char *tileCacheDir,
         char *mapName,
-        char *tileExt);
+        char *tileExt,
+        int ZYX_Flag);
 
 unsigned int osm_zoom_level(long scale_x);
 void init_OSM_values(void);

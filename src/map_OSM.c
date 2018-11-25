@@ -947,8 +947,9 @@ void draw_OSM_tiles (Widget w,
         char *server_url,      // if specified in xastir map file
         char *tileCacheDir,    // if specified in xastir map file
         char *mapName,         // if specified in xastir map file
-        char *tileExt) {       // if specified in xastir map file
-
+        char *tileExt,         // if specified in xastir map file
+        int ZYX_Flag)  {  
+        
     char serverURL[MAX_FILENAME];
     char tileRootDir[MAX_FILENAME];
     char map_it[MAX_FILENAME];
@@ -1108,19 +1109,19 @@ void draw_OSM_tiles (Widget w,
 
 #ifdef HAVE_LIBCURL
             curl_result = getOneTile(mySession, serverURL, tilex, tiley,
-                    osm_zl, tileRootDir, tileExt[0] != '\0' ? tileExt : "png");
+                    osm_zl, tileRootDir, tileExt[0] != '\0' ? tileExt : "png", ZYX_Flag);
             if (curl_result < 0) {
-               fprintf(stderr, "Download error for tile: %s/%i/%li/%li.%s\n",
-                       serverURL, osm_zl, tilex, tiley,
-                       tileExt[0] != '\0' ? tileExt : "png");
-               fprintf(stderr, "curl told us %d\n", -1 * curl_result);
-               fprintf(stderr, "curlerr: %s\n", errBuf);
+                fprintf(stderr, "Download error for tile: %s/%i/%li/%li.%s\n",
+                        serverURL, osm_zl, tilex, tiley,
+                        tileExt[0] != '\0' ? tileExt : "png");
+                fprintf(stderr, "curl told us %d\n", -1 * curl_result);
+                fprintf(stderr, "curlerr: %s\n", errBuf);
             } else {
                 tileCnt += curl_result;
             }
 #else
             tileCnt += getOneTile(serverURL, tilex, tiley,
-                    osm_zl, tileRootDir, tileExt[0] != '\0' ? tileExt : "png");
+                    osm_zl, tileRootDir, tileExt[0] != '\0' ? tileExt : "png", ZYX_Flag);
 #endif // HAVE_LIBCURL
 
             HandlePendingEvents(app_context);
@@ -1276,19 +1277,23 @@ void draw_OSM_tiles (Widget w,
 
         draw_OSM_image(w, canvas, &exception, &NWcorner, &SEcorner, osm_zl);
 
-        // Display the OpenStreetMap attribution
-        // Just resuse the tile structure rather than creating another.
-        xastir_snprintf(tmpString, sizeof(tmpString),
-                "%s/CC_OpenStreetMap.png", get_data_base_dir("maps"));
-        strncpy(tile_info->filename, tmpString, MaxTextExtent);
+        if (ZYX_Flag == 0) {  // Applies to OSM only
 
-        tile = ReadImage(tile_info,&exception);
-        if (exception.severity != UndefinedException) {
-            CatchException(&exception);
-        } else {
-            draw_image(w, tile, &exception, 4, 4);
-            DestroyImage(tile);
+            // Display the OpenStreetMap attribution
+            // Just resuse the tile structure rather than creating another.
+            xastir_snprintf(tmpString, sizeof(tmpString),
+                    "%s/CC_OpenStreetMap.png", get_data_base_dir("maps"));
+            strncpy(tile_info->filename, tmpString, MaxTextExtent);
+
+            tile = ReadImage(tile_info,&exception);
+            if (exception.severity != UndefinedException) {
+                CatchException(&exception);
+            } else {
+                draw_image(w, tile, &exception, 4, 4);
+                DestroyImage(tile);
+            }
         }
+
     } else {
         // map draw was interrupted
         // Update to screen
